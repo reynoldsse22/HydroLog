@@ -35,20 +35,20 @@ const Gpio = require('pigpio').Gpio;
 
 		/* Firestore Config */
 var firebaseConfig = {
-    apiKey: "AIzaSyD8wRNNxPdItq9JNZ2uYcUlZTTbSDMnyjY",
-    authDomain: "hydrolog-3990c.firebaseapp.com",
-    databaseURL: "https://hydrolog-3990c.firebaseio.com",
-    projectId: "hydrolog-3990c",
-    storageBucket: "hydrolog-3990c.appspot.com",
-    messagingSenderId: "413350093434",
-    appId: "1:413350093434:web:0acccad47c7385e687d1c3",
-    measurementId: "G-4G9WXYFQRB"
+    apiKey: "",
+    authDomain: "<projectId>.firebaseapp.com",
+    databaseURL: "https://<projectId>.firebaseio.com",
+    projectId: "",
+    storageBucket: "<projectId>.appspot.com",
+    messagingSenderId: "",
+    appId: "",
+    measurementId: ""
 };
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const collectionData = db.collection('FinalProject').doc('collectionData');
+const collectionData = db.collection('<collection>').doc('<document>');
 
 		/* End Firestore Config */
 
@@ -442,7 +442,7 @@ function setPadding(inputString){
 
 //Updates the database with the needed global variable data
 function updateDatabase(){
-    db.collection("FinalProject").doc("collectionData").set({
+    db.collection("<collection>").doc("<document>").set({
 	congratulated: congratulated,
 	currentCup: currentCup,
 	goal: goal,

@@ -31,6 +31,8 @@ To do this:
         progress: 0
         totalDailyWeight: 0
         totalMonthlyWeight: 0
+	daysMetGoal: 0
+	daysInMonth: <number of days in current month>
 
 5. In the project’s code, fill in the configuration variable with your application and project’s information:
     var firebaseConfig = {

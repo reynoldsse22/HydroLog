@@ -1,5 +1,5 @@
 /*
-* Program: hydrolog.js
+* Program: HydroLog.js
 * Author: Samuel Reynolds
 * Date: 04/24/2021
 * Course: CSCI-4677
@@ -9,7 +9,7 @@
 *	Given the user's inputted goal, the progress bar updates to reflect current status and a
 *	congratulatory message is displayed when that goal is met.
 *	The user also has the option to reset all progress and shut down the program.
-*	The user's data is backed up to a Google Firestore nonSQL database for data permanence.
+*	The user's data is backed up to a Google Firestor nonSQL database for data permanence.
 *	Enjoy!
 */
 
@@ -55,9 +55,9 @@ const collectionData = db.collection('<collection>').doc('<document>');
 
 		/* OLED Config */
 const opts = {
-  width: 128,
-  height: 64,
-  address: 0x3C
+  width: 128,  		//width of the oled display
+  height: 64,		//height of the oled display
+  address: 0x3C		//address on the bus for I2C communication
 };
 const statDisplay = new oled(i2cBus, opts);
 
@@ -65,8 +65,8 @@ const statDisplay = new oled(i2cBus, opts);
 
 
 		/* HX711 Config */
-const sensor = new hx711(18, 16);
-var calibration = 442;
+const sensor = new hx711(18, 16);	//18 = clockPin and 16 = dataPin. Numbering represents the WiringPi Pin numbers on the Pi. Not Broadcom or GPIO numbering. 
+var calibration = 442;			//Calibration for the hx711. This is found by calibrating. Number will be different on every hx711. Customize number to match your calibration value.
 sensor.setScale(calibration);
 sensor.tare();
 
@@ -121,7 +121,6 @@ const resetButton = new Gpio(6, {
 		/* End GPIO config */
 
 		/* Global Variables */
-
 var weighingDrink = false;
 var currentWeight = 0;
 var currentOZ = 0;
@@ -137,8 +136,11 @@ var goal;
 var tempGoal;
 var totalWeight;
 var monthlyTotal;
+var daysMetGoal;
 var currentMonth;
 var currentDay;
+var daysInMonth;
+var monthlyProgress;
 var statIndex = 0;
 var month = new Array("January", "February", "March",
 	"April", "May","June","July","August",
@@ -161,6 +163,8 @@ collectionData.get().then((doc) => {
 	currentMonth = doc.data().currentMonth;
 	currentDay = doc.data().currentDay;
 	monthlyTotal = doc.data().totalMonthlyWeight;
+	daysMetGoal = doc.data().daysMetGoal;
+	daysInMonth = doc.data().daysInMonth;
 	menu = 0;
 	checkDate();
 	updateOLED();
@@ -192,9 +196,9 @@ const i2c_bus = i2c.open(1, function(err)
 
 //starts running the oled display
 function startOLED() {
-    statDisplay.clearDisplay();
+    statDisplay.clearDisplay(); 				//make sure the display is cleared before writing to it
     statDisplay.setCursor(20, 1);
-    statDisplay.turnOnDisplay();
+    statDisplay.turnOnDisplay();				// turn on the display
     statDisplay.writeString(font, 1, 'Loading...', 1, true);
 }
 
@@ -202,30 +206,37 @@ function startOLED() {
 function updateOLED() {
    switch(menu){
 	case 0:
+		statDisplay.clearDisplay();
+		//Determine which homescreen to show
 		if(statIndex == 0){
 			totalWeight = parseFloat(totalWeight);
 			var weightString = totalWeight.toFixed(2) + " fl oz";
 			var weightPadding = setPadding(weightString);
 			var headingString = "Today's Log";
 			var headingPadding = setPadding(headingString);
+			var goalString = 'Goal: ' + goal + " fl oz";
+			var goalPadding = setPadding(goalString);
+			statDisplay.setCursor(goalPadding, 40);
+			statDisplay.writeString(font, 1, goalString, 1, true);
 		}
+		//show the monthly homescreen if statIndex == 1
 		else if(statIndex == 1){
 			monthlyTotal = parseFloat(monthlyTotal);
 			var weightString = monthlyTotal.toFixed(2) + " fl oz";
 			var weightPadding = setPadding(weightString);
 			var headingString = month[currentMonth-1] + "'s Log";
 			var headingPadding = setPadding(headingString);
+			var goalString = "Hit Goal " + daysMetGoal + '/' + daysInMonth + " Days" ;
+			var goalPadding = setPadding(goalString);
+			statDisplay.setCursor(goalPadding, 40);
+			statDisplay.writeString(font, 1, goalString, 1, true);
 		}
+		setProgressBar();
 		statDisplay.setCursor(headingPadding,1);
-	        statDisplay.clearDisplay();
+	        //statDisplay.clearDisplay();
     		statDisplay.writeString(font, 1, headingString, 1, true);
     		statDisplay.setCursor(weightPadding, 18);
     		statDisplay.writeString(font, 1, weightString, 1, true);
-		var goalString = 'Goal: ' + goal + " fl oz";
-		var goalPadding = setPadding(goalString);
-		statDisplay.setCursor(goalPadding, 40);
-		statDisplay.writeString(font, 1, goalString, 1, true);
-		setProgressBar();
 	break;
 	case 1:
 		statDisplay.setCursor(30,1);
@@ -260,7 +271,6 @@ function updateOLED() {
 		else {
 			statDisplay.setCursor(30, 20);
 			statDisplay.writeString(font, 1, "Current Cup:", 1, true);
-			currentCup = parseFloat(currentCup);
 			var registerCupString = currentCup.toFixed(2) + ' grams';
 			var registerCupPadding = setPadding(registerCupString);
 			statDisplay.setCursor(registerCupPadding, 35);
@@ -329,15 +339,17 @@ function updateOLED() {
                 statDisplay.writeString(font, 1, 'Yes', 1, true);
                 statDisplay.setCursor(115, 55);
                 statDisplay.writeString(font, 1, 'No', 1, true);
-		currentOZ = currentWeight/29.57353;
-		currentOZ = parseFloat(currentOZ.toFixed(2));
-		var cup = currentCup/29.57353;
-		cup = parseFloat(cup);
-		cup = cup.toFixed(2);
-		cup = parseFloat(cup);
-		currentOZ -= cup;
-		currentOZ = currentOZ.toFixed(2);
-               	currentOZ = parseFloat(currentOZ);
+		currentOZ = currentWeight/29.57353;			//convert drink from grams to fluid ounces
+		currentOZ = parseFloat(currentOZ.toFixed(2));		//Truncate the conversion to 2 decimal places
+		var cup = currentCup/29.57353;				//convert the cup from grams to fluid ounces for easy subtraction as a tare
+		cup = cup.toFixed(2);					//Truncate the cup to two decimal places
+		cup = parseFloat(cup);					//since toFixed() returns a string, parse the value back to a float
+		currentOZ -= cup;					//subtract the cup from the drink as a tare
+		currentOZ = currentOZ.toFixed(2);			//truncate to two decimal places to be safe
+               	currentOZ = parseFloat(currentOZ);			//parse back to a float
+		if(currentOZ < 0) {
+			currentOZ = 0;
+		}
 		var currentOzString = currentOZ + ' fl oz';
 		var currentOzPadding = setPadding(currentOzString);
 		statDisplay.setCursor(currentOzPadding, 25);
@@ -362,7 +374,7 @@ function updateOLED() {
                 statDisplay.setCursor(115, 55);
                 statDisplay.writeString(font, 1, 'No', 1, true);
                 weighingCup = true;
-		currentCupWeight = currentCupWeight.toFixed(4);
+		currentCupWeight = currentCupWeight.toFixed(4);			//truncate the cup to 4 decimal places
                	var currentCupString = currentCupWeight + ' grams';
                	var currentCupPadding = setPadding(currentCupString);
                	statDisplay.setCursor(currentCupPadding, 25);
@@ -380,10 +392,22 @@ function updateOLED() {
 	case 13:
 		statDisplay.setCursor(1,1);
                 statDisplay.clearDisplay();
-                statDisplay.setCursor(15, 20);
-                statDisplay.writeString(font, 1, 'No cup detected', 1, true);
-                statDisplay.setCursor(90, 55);
-                statDisplay.writeString(font, 1, 'Return', 1, true);
+		//if there is no cup registeres, there shouldn't be an option to set the cup to 0.
+		if(currentCup != 0){
+                statDisplay.setCursor(15, 1);
+	                statDisplay.writeString(font, 1, 'No cup detected', 1, true);
+			statDisplay.setCursor(25, 25);
+			statDisplay.writeString(font, 1, 'Remove cup?', 1, true);
+			statDisplay.setCursor(1, 55);
+			statDisplay.writeString(font, 1, 'Confirm', 1, true);
+                	statDisplay.setCursor(90, 55);
+                	statDisplay.writeString(font, 1, 'Return', 1, true);
+		} else {
+			statDisplay.setCursor(15, 20);
+                	statDisplay.writeString(font, 1, 'No cup detected', 1, true);
+                	statDisplay.setCursor(90, 55);
+                	statDisplay.writeString(font, 1, 'Return', 1, true);
+		}
 	break;
 	case 14:
 		statDisplay.setCursor(15,1);
@@ -405,16 +429,28 @@ function updateOLED() {
 
 //Sets the progress bar depending on the amount of progress compared to the overal daily goal
 function setProgressBar() {
-    if(progress > 0){
-	var barLength = progress * .9; 		//dvide by 9/10 since the progress bar is only 90 pixels wide
-        barLength = Math.round(barLength);
-	if(barLength > 90){			//if over 90 pixels, max out at 90 to prevent overwriting pixels
-		barLength = 90;
+    monthlyProgress = daysMetGoal/daysInMonth;
+    monthlyProgress = Math.round(monthlyProgress * 100, 0);
+    var barLength = 1;
+    if(statIndex == 1){
+        if(monthlyProgress > 0){
+		barLength = monthlyProgress * .9;          //divide by 9/10 since the progress bar is only 90 pixels wide
 	}
+ 	statDisplay.setCursor(90, 55);
+	statDisplay.writeString(font, 1, '| ' + monthlyProgress + '%', 1, true);
     }
-    else{
-    	var barLength = 1;			//if progress is 0 or somehow less, set a minimum value of 1.
+    else if (statIndex == 0){
+	if(progress > 0) {
+		barLength = progress * .9;
+	}
+	statDisplay.setCursor(90, 55);
+    	statDisplay.writeString(font, 1, '| ' + progress + '%', 1, true);
     }
+    barLength = Math.round(barLength);
+    if(barLength > 90){                     //if over 90 pixels, max out at 90 to prevent overwriting pixels
+          barLength = 90;
+    }
+    statDisplay.setCursor(1,1);
     statDisplay.drawLine(1, 55, barLength, 55, 1);
     statDisplay.drawLine(1, 56, barLength, 56, 1);
     statDisplay.drawLine(1, 57, barLength, 57, 1);
@@ -422,9 +458,8 @@ function setProgressBar() {
     statDisplay.drawLine(1, 59, barLength, 59, 1);
     statDisplay.drawLine(1, 60, barLength, 60, 1);
     statDisplay.drawLine(1, 61, barLength, 61, 1);
-    statDisplay.setCursor(90, 55);
-    statDisplay.writeString(font, 1, '| ' + progress + '%', 1, true);
 }
+
 
 //Returns the correct padding integer for a given string less than 128 pixels wide
 function setPadding(inputString){
@@ -450,7 +485,9 @@ function updateDatabase(){
     	totalDailyWeight: totalWeight,
 	currentMonth: currentMonth,
 	currentDay: currentDay,
-	totalMonthlyWeight: monthlyTotal
+	daysMetGoal: daysMetGoal,
+	totalMonthlyWeight: monthlyTotal,
+	daysInMonth: daysInMonth
     })
 }
 
@@ -462,6 +499,9 @@ function resetDatabase() {
     currentWeight = 0;
     monthlyTotal = 0;
     congratulated = false;
+    daysMetGoal = 0;
+    monthlyProgress = 0;
+    daysMetGoal = 0;
     updateDatabase();
 }
 
@@ -469,41 +509,23 @@ function resetDatabase() {
 function checkDate(){
     var testDate = new Date();
     var testMonth = testDate.getMonth() + 1;
-    if(currentMonth != testMonth) {
+    var testYear = testDate.getFullYear();
+    daysInMonth = new Date(testYear, testMonth, 0).getDate();		//returns the number of days in the current month
+    daysInMonth = parseInt(daysInMonth);
+    if(currentMonth != testMonth) {					//If the current month does not match last recorded month. A new month has passed
 	monthlyTotal = 0;
 	currentMonth = testMonth;
-	updateDatabase();
+	daysMetGoal = 0;
 	updateOLED();
     }
     var testDay = testDate.getDate();
-    if(currentDay != testDay) {
+    if(currentDay != testDay) {						//If the current day does not match last recorded day. A new day has passed
 	totalWeight = 0;
 	currentDay = testDay;
 	progress = 0;
-	updateDatabase();
 	updateOLED();
     }
-}
-
-function shutDown(){
-        statDisplay.clearDisplay();
-        statDisplay.setCursor(20,1);
-        statDisplay.writeString(font, 2, 'Goodbye!', 1, true);
-        statDisplay.setCursor(40, 35);
-        statDisplay.writeString(font, 1, 'HydroLog', 50, true);
-        statDisplay.setCursor(18, 45);
-        statDisplay.writeString(font, 1, 'Samuel Reynolds', 50, true);
-        statDisplay.setCursor(52, 55);
-        statDisplay.writeString(font, 1, '2021', 50, true);
-        setTimeout(function(){
-                statDisplay.clearDisplay();
-		menu = -1;
-        },3000);
-
-        setTimeout(function(){
-                statDisplay.turnOffDisplay();
-                process.exit();
-        },3010);
+    updateDatabase();
 }
 
 
@@ -523,7 +545,7 @@ resetButton.glitchFilter(100000);
 upButton.on('interrupt', function(level) {
     if(menu == 2) {
 	inAction = true;
-	tempGoal += 5;
+	tempGoal += 5;		//increment the goal by 5
     }
     setTimeout(function(){
 	updateOLED();
@@ -534,7 +556,7 @@ upButton.on('interrupt', function(level) {
 downButton.on('interrupt', function(level) {
     if(menu == 2) {
 	inAction = true;
-        tempGoal -= 5;
+        tempGoal -= 5;		//decrement the goal by 5
     }
     setTimeout(function(){
 	updateOLED();
@@ -657,10 +679,13 @@ setButton.on('interrupt', function(level) {
 		totalWeight = totalWeight.toFixed(2);
 		totalWeight = parseFloat(totalWeight);
 		monthlyTotal += currentOZ;
+		monthlyTotal = monthlyTotal.toFixed(2);
+		monthlyTotal = parseFloat(monthlyTotal);
     		progress = totalWeight / goal;
 		progress = Math.round(progress * 100, 0);
 		if(totalWeight >= goal && congratulated == false){
 			menu = 14;
+			daysMetGoal++;
 			congratulated = true;
 		}
 		else {
@@ -683,10 +708,18 @@ setButton.on('interrupt', function(level) {
 	break;
 	case 11:
 		currentCup = parseFloat(currentCupWeight);
-        	weighingCup = false;
+        	currentCup = currentCup.toFixed(4);
+		currentCup = parseFloat(currentCup);
+		weighingCup = false;
         	menu = 0;
         	inMenu = false;
 		updateDatabase();
+	break;
+	case 13:
+		currentCup = 0;
+		updateDatabase();
+		menu = 3;
+		updateOLED();
 	break;
 	case 14:
 	        menu = 0;
@@ -714,7 +747,8 @@ resetButton.on('interrupt', function(level) {
                 menu = 0;
 	break;
 	case 7:
-		shutDown();
+		process.emit('SIGINT');		//shutdown
+	break;
 	case 8:
 		menu = 1;
         	inMenu = true;

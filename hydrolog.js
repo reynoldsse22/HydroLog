@@ -136,7 +136,7 @@ var goal;
 var tempGoal;
 var totalWeight;
 var monthlyTotal;
-var daysMetGoal;
+var daysMetGoal = 0;
 var currentMonth;
 var currentDay;
 var daysInMonth;
@@ -685,7 +685,7 @@ setButton.on('interrupt', function(level) {
 		progress = Math.round(progress * 100, 0);
 		if(totalWeight >= goal && congratulated == false){
 			menu = 14;
-			daysMetGoal++;
+			daysMetGoal += 1;
 			congratulated = true;
 		}
 		else {
@@ -728,7 +728,7 @@ setButton.on('interrupt', function(level) {
     }
     setTimeout(function(){
 	updateOLED();
-    },500);
+    },250);
 });
 
 //Reset button event listener
@@ -797,7 +797,7 @@ resetButton.on('interrupt', function(level) {
     }
     setTimeout(function(){
 	updateOLED();
-    },500);
+    },250);
 });
 
 		/* End Event Listeners */
